@@ -26,3 +26,10 @@ class InstagramAccount(Base):
     status: Mapped[str] = mapped_column(String(50), default="disconnected")
     last_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     user: Mapped["User"] = relationship(back_populates="instagram_account")
+
+class Preference(Base):
+    __tablename__ = "preferences"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    topic: Mapped[str] = mapped_column(String(100))
+    mode: Mapped[str] = mapped_column(String(10))
