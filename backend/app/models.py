@@ -33,3 +33,17 @@ class Preference(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     topic: Mapped[str] = mapped_column(String(100))
     mode: Mapped[str] = mapped_column(String(10))
+
+class AutomationLog(Base):
+    __tablename__ = "automation_logs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    post_id: Mapped[str] = mapped_column(String(100))
+    username: Mapped[str] = mapped_column(String(100))
+    caption: Mapped[str | None] = mapped_column(Text)
+    score: Mapped[int] = mapped_column()
+    reason: Mapped[str | None] = mapped_column(Text)
+    action: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

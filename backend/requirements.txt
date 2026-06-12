@@ -7,4 +7,7 @@ pydantic[email]
 pydantic-settings
 pyjwt
 bcrypt
-redisinstagrapi
+redis
+instagrapi
+celery
+anthropic
