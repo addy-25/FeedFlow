@@ -69,6 +69,22 @@ async def connect(
     return {"status": "connected", "username": body.username}
 
 
+@router.post("/disconnect")
+async def disconnect(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    account = await db.scalar(
+        select(InstagramAccount).where(InstagramAccount.user_id == user.id)
+    )
+    if not account:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No connected account")
+    account.status = "disconnected"
+    account.session_data = None
+    await db.commit()
+    return {"status": "disconnected"}
+
+
 @router.get("/status", response_model=StatusResponse)
 async def get_status(
     user: User = Depends(get_current_user),

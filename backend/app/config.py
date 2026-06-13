@@ -11,4 +11,4 @@ class Settings(BaseSettings):
     anthropic_api_key: str
 
 
-settings = Settings()
+settings = Settings() # type: ignore

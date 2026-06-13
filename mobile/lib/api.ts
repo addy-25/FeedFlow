@@ -36,6 +36,13 @@ export interface LogItem {
   action: 'liked' | 'suppressed' | 'none';
   created_at: string;
 }
+export interface Me {
+  id: number;
+  email: string;
+}
+export interface Settings {
+  automation_interval_minutes: number;
+}
 
 let cachedToken: string | null = null;
 
@@ -127,6 +134,48 @@ export const api = {
     }
   },
 
+  getMe(): Promise<Me> {
+    return withFallback(
+      () => request<Me>('/auth/me'),
+      () => demo.me
+    );
+  },
+
+  changeEmail(email: string): Promise<Me> {
+    return withFallback(
+      () => request<Me>('/auth/email', { method: 'PATCH', body: { email } }),
+      () => {
+        demo.me = { ...demo.me, email };
+        return demo.me;
+      }
+    );
+  },
+
+  changePassword(current_password: string, new_password: string): Promise<void> {
+    return withFallback(
+      async () => {
+        await request('/auth/password', {
+          method: 'POST',
+          body: { current_password, new_password },
+        });
+      },
+      () => undefined
+    );
+  },
+
+  resetPassword(email: string, new_password: string): Promise<void> {
+    return withFallback(
+      async () => {
+        await request('/auth/reset-password', {
+          method: 'POST',
+          body: { email, new_password },
+          auth: false,
+        });
+      },
+      () => undefined
+    );
+  },
+
   getPreferences(): Promise<Preference[]> {
     return withFallback(
       async () => {
@@ -169,6 +218,63 @@ export const api = {
           last_sync: new Date().toISOString(),
         };
         return { status: 'connected' };
+      }
+    );
+  },
+
+  disconnectInstagram(): Promise<{ status: string }> {
+    return withFallback(
+      () => request('/instagram/disconnect', { method: 'POST' }),
+      () => {
+        demo.igStatus = { status: 'disconnected', username: null, last_sync: null };
+        return { status: 'disconnected' };
+      }
+    );
+  },
+
+  getSettings(): Promise<Settings> {
+    return withFallback(
+      () => request<Settings>('/settings'),
+      () => demo.settings
+    );
+  },
+
+  updateSettings(automation_interval_minutes: number): Promise<Settings> {
+    return withFallback(
+      () =>
+        request<Settings>('/settings', {
+          method: 'PATCH',
+          body: { automation_interval_minutes },
+        }),
+      () => {
+        demo.settings = { automation_interval_minutes };
+        return demo.settings;
+      }
+    );
+  },
+
+  suggestTopics(topics: string[]): Promise<string[]> {
+    return withFallback(
+      async () => {
+        const r = await request<{ suggestions: string[] }>('/preferences/suggest', {
+          method: 'POST',
+          body: { topics },
+        });
+        return r.suggestions;
+      },
+      () => {
+        const pool = [
+          'Machine Learning',
+          'Venture Capital',
+          'Productivity',
+          'Open Source',
+          'Robotics',
+          'Data Science',
+          'Web Development',
+          'Crypto',
+        ];
+        const chosen = new Set(topics.map((t) => t.toLowerCase()));
+        return pool.filter((t) => !chosen.has(t.toLowerCase())).slice(0, 6);
       }
     );
   },

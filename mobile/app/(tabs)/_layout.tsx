@@ -1,63 +1,28 @@
-import { Tabs } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { BlurView } from 'expo-blur';
-import { StyleSheet, type ColorValue } from 'react-native';
+import { withLayoutContext } from 'expo-router';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
+import { GlassTabBar } from '../../components/GlassTabBar';
 import { colors } from '../../theme';
 
-type IconName = keyof typeof Ionicons.glyphMap;
-
-function tabIcon(name: IconName) {
-  return ({ color, size }: { color: ColorValue; size: number }) => (
-    <Ionicons name={name} size={size} color={color as string} />
-  );
-}
+// expo-router doesn't ship a swipeable tabs navigator, so we adapt
+// Material Top Tabs (which supports swipe) and pin its bar to the bottom.
+const { Navigator } = createMaterialTopTabNavigator();
+const MaterialTopTabs = withLayoutContext(Navigator);
 
 export default function TabsLayout() {
   return (
-    <Tabs
+    <MaterialTopTabs
+      tabBarPosition="bottom"
+      tabBar={(props) => <GlassTabBar {...props} />}
       screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.cyan,
-        tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: styles.bar,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
-        tabBarBackground: () => (
-          <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
-        ),
+        swipeEnabled: true,
         sceneStyle: { backgroundColor: colors.bg },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{ title: 'Home', tabBarIcon: tabIcon('home') }}
-      />
-      <Tabs.Screen
-        name="preferences"
-        options={{ title: 'Interests', tabBarIcon: tabIcon('options') }}
-      />
-      <Tabs.Screen
-        name="connect"
-        options={{ title: 'Connect', tabBarIcon: tabIcon('logo-instagram') }}
-      />
-      <Tabs.Screen
-        name="analytics"
-        options={{ title: 'Activity', tabBarIcon: tabIcon('bar-chart') }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{ title: 'Profile', tabBarIcon: tabIcon('person') }}
-      />
-    </Tabs>
+      <MaterialTopTabs.Screen name="index" options={{ title: 'Home' }} />
+      <MaterialTopTabs.Screen name="preferences" options={{ title: 'Interests' }} />
+      <MaterialTopTabs.Screen name="connect" options={{ title: 'Connect' }} />
+      <MaterialTopTabs.Screen name="analytics" options={{ title: 'Activity' }} />
+      <MaterialTopTabs.Screen name="profile" options={{ title: 'Profile' }} />
+    </MaterialTopTabs>
   );
 }
-
-const styles = StyleSheet.create({
-  bar: {
-    position: 'absolute',
-    borderTopWidth: 0,
-    backgroundColor: 'rgba(10,10,20,0.6)',
-    elevation: 0,
-    height: 84,
-    paddingTop: 8,
-  },
-});

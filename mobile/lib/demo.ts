@@ -2,13 +2,17 @@
  * Seed data served when the backend is unreachable, so the UI is always
  * populated for a demo. Mutated in-place by api fallbacks within a session.
  */
-import type { IgStatus, LogItem, Preference } from './api';
+import type { IgStatus, LogItem, Me, Preference, Settings } from './api';
 
 export const demo: {
+  me: Me;
+  settings: Settings;
   preferences: Preference[];
   igStatus: IgStatus;
   logs: LogItem[];
 } = {
+  me: { id: 1, email: 'you@example.com' },
+  settings: { automation_interval_minutes: 60 },
   preferences: [
     { topic: 'Artificial Intelligence', mode: 'boost' },
     { topic: 'Startups', mode: 'boost' },

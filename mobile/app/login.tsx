@@ -88,6 +88,16 @@ export default function Login() {
                 style={styles.input}
               />
 
+              {mode === 'login' && (
+                <Pressable
+                  onPress={() => router.push('/forgot-password')}
+                  style={styles.forgotRow}
+                  hitSlop={8}
+                >
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </Pressable>
+              )}
+
               {error && <Text style={styles.error}>{error}</Text>}
 
               <PrimaryButton
@@ -138,6 +148,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   error: { color: colors.reduce, ...font.caption, marginTop: spacing.md },
+  forgotRow: { alignSelf: 'flex-end', marginTop: spacing.md },
+  forgotText: { ...font.label, color: colors.cyan },
   switchRow: { marginTop: spacing.xl, alignItems: 'center' },
   switchText: { ...font.body, color: colors.textDim },
 });

@@ -24,7 +24,7 @@ class LogItem(BaseModel):
 
 @router.post("/trigger")
 async def trigger(user: User = Depends(get_current_user)):
-    task = run_automation.delay(user.id)
+    task = run_automation.delay(user.id) # type: ignore
     return {"task_id": task.id, "status": "queued"}
 
 

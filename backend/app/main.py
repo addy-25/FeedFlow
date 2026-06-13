@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware # type: ignore
 
 from .database import Base, engine
 from . import models  # noqa: F401  registers tables on Base
-from .routers import auth, instagram, preferences, automation
+from .routers import auth, instagram, preferences, automation, settings
 
 
 
@@ -29,6 +29,7 @@ app.include_router(auth.router)
 app.include_router(instagram.router)
 app.include_router(preferences.router)
 app.include_router(automation.router)
+app.include_router(settings.router)
 
 
 @app.get("/health")

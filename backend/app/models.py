@@ -34,6 +34,15 @@ class Preference(Base):
     topic: Mapped[str] = mapped_column(String(100))
     mode: Mapped[str] = mapped_column(String(10))
 
+
+class UserSettings(Base):
+    __tablename__ = "user_settings"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True, index=True)
+    # How often (minutes) the scheduler should run automation for this user.
+    automation_interval_minutes: Mapped[int] = mapped_column(default=60)
+
+
 class AutomationLog(Base):
     __tablename__ = "automation_logs"
     id: Mapped[int] = mapped_column(primary_key=True)

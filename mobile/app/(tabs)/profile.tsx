@@ -17,12 +17,14 @@ export default function Profile() {
   const router = useRouter();
   const { logout } = useAuth();
   const [handle, setHandle] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [automation, setAutomation] = useState(true);
   const [notifications, setNotifications] = useState(true);
 
   const load = useCallback(async () => {
-    const s = await api.getInstagramStatus();
+    const [s, me] = await Promise.all([api.getInstagramStatus(), api.getMe()]);
     setHandle(s.username);
+    setEmail(me.email);
   }, []);
 
   useFocusEffect(
@@ -61,7 +63,9 @@ export default function Profile() {
             </LinearGradient>
             <View style={{ marginLeft: spacing.lg, flex: 1 }}>
               <Text style={styles.name}>{handle ? `@${handle}` : 'FeedFlow User'}</Text>
-              <Text style={styles.email}>Personalizing your Instagram feed</Text>
+              <Text style={styles.email} numberOfLines={1}>
+                {email ?? 'Personalizing your Instagram feed'}
+              </Text>
             </View>
           </GlassCard>
         </Reveal>
@@ -91,6 +95,25 @@ export default function Profile() {
         </Reveal>
 
         <Reveal delay={240}>
+          <Text style={styles.section}>Login & security</Text>
+          <GlassCard padded={false} style={{ marginTop: spacing.sm }}>
+            <NavRow
+              icon="mail"
+              label="Email"
+              sub={email ?? 'Loading…'}
+              onPress={() => router.push('/change-email')}
+            />
+            <Divider />
+            <NavRow
+              icon="lock-closed"
+              label="Password"
+              sub="Change your password"
+              onPress={() => router.push('/change-password')}
+            />
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={300}>
           <Text style={styles.section}>Account</Text>
           <GlassCard padded={false} style={{ marginTop: spacing.sm }}>
             <NavRow
@@ -109,7 +132,7 @@ export default function Profile() {
           </GlassCard>
         </Reveal>
 
-        <Reveal delay={320}>
+        <Reveal delay={360}>
           <GlassCard padded={false} style={{ marginTop: spacing.xl }}>
             <Pressable style={styles.row} onPress={doLogout}>
               <View style={[styles.rowIcon, { backgroundColor: colors.reduce + '22' }]}>
