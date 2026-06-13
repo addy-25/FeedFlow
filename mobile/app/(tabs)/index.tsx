@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -11,11 +11,13 @@ import { CountUp } from '../../components/CountUp';
 import { Reveal } from '../../components/Reveal';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { api, type LogItem } from '../../lib/api';
+import { notifyRun } from '../../lib/notifications';
 import { timeAgo } from '../../lib/format';
 import { colors, font, radii, spacing } from '../../theme';
 
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [active, setActive] = useState(true);
   const [running, setRunning] = useState(false);
@@ -40,13 +42,25 @@ export default function Home() {
 
   const runNow = async () => {
     setRunning(true);
+    const beforeIds = new Set(logs.map((l) => l.id));
     try {
       await api.triggerAutomation();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      // give the worker a moment, then refresh
-      setTimeout(load, 1500);
-    } finally {
-      setTimeout(() => setRunning(false), 1500);
+      // give the worker a moment, then refresh and summarise the run
+      setTimeout(async () => {
+        const fresh = await api.getLogs();
+        setLogs(fresh);
+        const fresh_new = fresh.filter((l) => !beforeIds.has(l.id));
+        const runSet = fresh_new.length ? fresh_new : fresh.slice(0, 5);
+        await notifyRun({
+          processed: runSet.length,
+          liked: runSet.filter((l) => l.action === 'liked').length,
+          suppressed: runSet.filter((l) => l.action === 'suppressed').length,
+        });
+        setRunning(false);
+      }, 2000);
+    } catch {
+      setRunning(false);
     }
   };
 
@@ -74,7 +88,9 @@ export default function Home() {
             <Text style={styles.brand}>
               Feed<Text style={{ color: colors.cyan }}>Flow</Text>
             </Text>
-            <Ionicons name="notifications-outline" size={22} color={colors.textDim} />
+            <Pressable onPress={() => router.push('/notifications')} hitSlop={12}>
+              <Ionicons name="notifications-outline" size={22} color={colors.textDim} />
+            </Pressable>
           </View>
           <Text style={styles.h1}>Home</Text>
         </Reveal>

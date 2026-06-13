@@ -3,7 +3,7 @@
  * to neighbouring items to get a staggered scroll-reveal cascade.
  */
 import { useEffect, type ReactNode } from 'react';
-import type { ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -21,7 +21,7 @@ export function Reveal({
   children: ReactNode;
   delay?: number;
   distance?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 }) {
   const p = useSharedValue(0);
   useEffect(() => {

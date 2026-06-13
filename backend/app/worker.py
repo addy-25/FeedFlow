@@ -17,9 +17,7 @@ celery_app.conf.update(
     accept_content=["json"],
     timezone="UTC",
     enable_utc=True,
-    # Celery Beat ticks every 5 minutes — this is just the scheduler's
-    # granularity. The fan-out task then only runs automation for users whose
-    # own configured interval (default 60 min) has actually elapsed.
+    
     beat_schedule={
         "personalization-tick": {
             "task": "feedflow.run_automation_all_users",

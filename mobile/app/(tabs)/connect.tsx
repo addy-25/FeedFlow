@@ -1,7 +1,9 @@
 import { useCallback, useState } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -38,6 +40,7 @@ export default function Connect() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -70,6 +73,30 @@ export default function Connect() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const doDisconnect = () => {
+    Alert.alert(
+      'Disconnect Instagram',
+      'FeedFlow will stop personalizing your feed until you reconnect.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: async () => {
+            setDisconnecting(true);
+            try {
+              await api.disconnectInstagram();
+              setPassword('');
+              await load();
+            } finally {
+              setDisconnecting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const meta = STATUS_META[status.status];
@@ -149,6 +176,21 @@ export default function Connect() {
                 loading={busy}
                 style={{ marginTop: spacing.xl }}
               />
+
+              {connected && (
+                <Pressable
+                  onPress={doDisconnect}
+                  disabled={disconnecting}
+                  style={styles.disconnectBtn}
+                  hitSlop={8}
+                >
+                  <Ionicons name="unlink-outline" size={16} color={colors.reduce} />
+                  <Text style={styles.disconnectText}>
+                    {disconnecting ? 'Disconnecting…' : 'Disconnect account'}
+                  </Text>
+                </Pressable>
+              )}
+
               <View style={styles.privacyRow}>
                 <Ionicons name="lock-closed" size={12} color={colors.textMuted} />
                 <Text style={styles.privacy}>
@@ -200,6 +242,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   error: { color: colors.reduce, ...font.caption, marginTop: spacing.md },
+  disconnectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  disconnectText: { ...font.label, color: colors.reduce },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg },
   privacy: { ...font.caption, color: colors.textMuted, flex: 1 },
 });

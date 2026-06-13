@@ -9,8 +9,19 @@ import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { Reveal } from '../../components/Reveal';
 import { api } from '../../lib/api';
+import { isNotificationsEnabled, setNotificationsEnabled } from '../../lib/notifications';
 import { useAuth } from '../../lib/auth';
 import { colors, font, radii, spacing } from '../../theme';
+
+const INTERVAL_OPTIONS: { minutes: number; label: string }[] = [
+  { minutes: 15, label: '15m' },
+  { minutes: 30, label: '30m' },
+  { minutes: 60, label: '1h' },
+  { minutes: 180, label: '3h' },
+  { minutes: 360, label: '6h' },
+  { minutes: 720, label: '12h' },
+  { minutes: 1440, label: 'Daily' },
+];
 
 export default function Profile() {
   const insets = useSafeAreaInsets();
@@ -20,11 +31,20 @@ export default function Profile() {
   const [email, setEmail] = useState<string | null>(null);
   const [automation, setAutomation] = useState(true);
   const [notifications, setNotifications] = useState(true);
+  const [intervalMin, setIntervalMin] = useState(60);
+  const [savingInterval, setSavingInterval] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, me] = await Promise.all([api.getInstagramStatus(), api.getMe()]);
+    const [s, me, settings, notifOn] = await Promise.all([
+      api.getInstagramStatus(),
+      api.getMe(),
+      api.getSettings(),
+      isNotificationsEnabled(),
+    ]);
     setHandle(s.username);
     setEmail(me.email);
+    setIntervalMin(settings.automation_interval_minutes);
+    setNotifications(notifOn);
   }, []);
 
   useFocusEffect(
@@ -32,6 +52,28 @@ export default function Profile() {
       load();
     }, [load])
   );
+
+  const toggleNotifications = async (v: boolean) => {
+    Haptics.selectionAsync();
+    setNotifications(v);
+    await setNotificationsEnabled(v);
+  };
+
+  const chooseInterval = async (minutes: number) => {
+    if (minutes === intervalMin) return;
+    Haptics.selectionAsync();
+    const prev = intervalMin;
+    setIntervalMin(minutes);
+    setSavingInterval(true);
+    try {
+      const res = await api.updateSettings(minutes);
+      setIntervalMin(res.automation_interval_minutes);
+    } catch {
+      setIntervalMin(prev); // revert on failure
+    } finally {
+      setSavingInterval(false);
+    }
+  };
 
   const doLogout = async () => {
     await logout();
@@ -87,10 +129,40 @@ export default function Profile() {
             <ToggleRow
               icon="notifications"
               label="Notifications"
-              sub="Activity alerts"
+              sub={notifications ? 'Alerts when your feed updates' : 'Muted'}
               value={notifications}
-              onChange={setNotifications}
+              onChange={toggleNotifications}
             />
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={200}>
+          <Text style={styles.section}>Automation schedule</Text>
+          <GlassCard style={{ marginTop: spacing.sm }}>
+            <View style={styles.scheduleHeader}>
+              <Ionicons name="time-outline" size={18} color={colors.cyan} />
+              <Text style={styles.scheduleLabel}>Run automatically every</Text>
+            </View>
+            <Text style={styles.scheduleSub}>
+              How often FeedFlow re-runs personalization on its own.
+            </Text>
+            <View style={styles.intervalRow}>
+              {INTERVAL_OPTIONS.map((opt) => {
+                const active = opt.minutes === intervalMin;
+                return (
+                  <Pressable
+                    key={opt.minutes}
+                    onPress={() => chooseInterval(opt.minutes)}
+                    disabled={savingInterval}
+                    style={[styles.intervalChip, active && styles.intervalChipActive]}
+                  >
+                    <Text style={[styles.intervalText, active && { color: colors.bg }]}>
+                      {opt.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </GlassCard>
         </Reveal>
 
@@ -228,4 +300,20 @@ const styles = StyleSheet.create({
   rowLabel: { ...font.label, color: colors.text, fontSize: 15 },
   rowSub: { ...font.caption, color: colors.textDim, marginTop: 1 },
   divider: { height: 1, backgroundColor: colors.border, marginLeft: 58 },
+  scheduleHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  scheduleLabel: { ...font.label, color: colors.text, fontSize: 15 },
+  scheduleSub: { ...font.caption, color: colors.textDim, marginTop: 4 },
+  intervalRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginTop: spacing.lg },
+  intervalChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    minWidth: 52,
+    alignItems: 'center',
+  },
+  intervalChipActive: { backgroundColor: colors.cyan, borderColor: colors.cyan },
+  intervalText: { ...font.label, color: colors.textDim },
 });
+
