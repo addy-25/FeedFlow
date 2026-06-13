@@ -1,0 +1,208 @@
+import { useCallback, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { GradientBackground } from '../../components/GradientBackground';
+import { GlassCard } from '../../components/GlassCard';
+import { Reveal } from '../../components/Reveal';
+import { api } from '../../lib/api';
+import { useAuth } from '../../lib/auth';
+import { colors, font, radii, spacing } from '../../theme';
+
+export default function Profile() {
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { logout } = useAuth();
+  const [handle, setHandle] = useState<string | null>(null);
+  const [automation, setAutomation] = useState(true);
+  const [notifications, setNotifications] = useState(true);
+
+  const load = useCallback(async () => {
+    const s = await api.getInstagramStatus();
+    setHandle(s.username);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  const doLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
+
+  return (
+    <GradientBackground>
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 110 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Reveal>
+          <Text style={styles.h1}>Profile</Text>
+        </Reveal>
+
+        <Reveal delay={80}>
+          <GlassCard style={{ marginTop: spacing.lg, flexDirection: 'row', alignItems: 'center' }}>
+            <LinearGradient
+              colors={['#7C3AED', '#3B82F6'] as const}
+              style={styles.avatar}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.avatarText}>{(handle ?? 'F')[0].toUpperCase()}</Text>
+            </LinearGradient>
+            <View style={{ marginLeft: spacing.lg, flex: 1 }}>
+              <Text style={styles.name}>{handle ? `@${handle}` : 'FeedFlow User'}</Text>
+              <Text style={styles.email}>Personalizing your Instagram feed</Text>
+            </View>
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={160}>
+          <Text style={styles.section}>Controls</Text>
+          <GlassCard padded={false} style={{ marginTop: spacing.sm }}>
+            <ToggleRow
+              icon="flash"
+              label="Automation"
+              sub={automation ? 'Personalization is on' : 'Personalization is off'}
+              value={automation}
+              onChange={(v) => {
+                Haptics.selectionAsync();
+                setAutomation(v);
+              }}
+            />
+            <Divider />
+            <ToggleRow
+              icon="notifications"
+              label="Notifications"
+              sub="Activity alerts"
+              value={notifications}
+              onChange={setNotifications}
+            />
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={240}>
+          <Text style={styles.section}>Account</Text>
+          <GlassCard padded={false} style={{ marginTop: spacing.sm }}>
+            <NavRow
+              icon="options"
+              label="Content Preferences"
+              sub="Manage your interests"
+              onPress={() => router.push('/(tabs)/preferences')}
+            />
+            <Divider />
+            <NavRow
+              icon="logo-instagram"
+              label="Connected Account"
+              sub={handle ? `@${handle}` : 'Not connected'}
+              onPress={() => router.push('/(tabs)/connect')}
+            />
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={320}>
+          <GlassCard padded={false} style={{ marginTop: spacing.xl }}>
+            <Pressable style={styles.row} onPress={doLogout}>
+              <View style={[styles.rowIcon, { backgroundColor: colors.reduce + '22' }]}>
+                <Ionicons name="log-out-outline" size={18} color={colors.reduce} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.reduce }]}>Log out</Text>
+            </Pressable>
+          </GlassCard>
+        </Reveal>
+      </ScrollView>
+    </GradientBackground>
+  );
+}
+
+function ToggleRow({
+  icon,
+  label,
+  sub,
+  value,
+  onChange,
+}: {
+  icon: any;
+  label: string;
+  sub: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.row}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={18} color={colors.cyan} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowSub}>{sub}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ false: 'rgba(255,255,255,0.12)', true: colors.boost }}
+        thumbColor="#fff"
+      />
+    </View>
+  );
+}
+
+function NavRow({
+  icon,
+  label,
+  sub,
+  onPress,
+}: {
+  icon: any;
+  label: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable style={styles.row} onPress={onPress}>
+      <View style={styles.rowIcon}>
+        <Ionicons name={icon} size={18} color={colors.cyan} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowSub}>{sub}</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+    </Pressable>
+  );
+}
+
+function Divider() {
+  return <View style={styles.divider} />;
+}
+
+const styles = StyleSheet.create({
+  scroll: { paddingHorizontal: spacing.lg },
+  h1: { ...font.hero, color: colors.text },
+  avatar: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 24, fontWeight: '800', color: '#fff' },
+  name: { ...font.h2, color: colors.text },
+  email: { ...font.caption, color: colors.textDim, marginTop: 2 },
+  section: { ...font.label, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: spacing.xl },
+  row: { flexDirection: 'row', alignItems: 'center', padding: spacing.lg, gap: spacing.md },
+  rowIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: radii.sm,
+    backgroundColor: 'rgba(34,211,238,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowLabel: { ...font.label, color: colors.text, fontSize: 15 },
+  rowSub: { ...font.caption, color: colors.textDim, marginTop: 1 },
+  divider: { height: 1, backgroundColor: colors.border, marginLeft: 58 },
+});

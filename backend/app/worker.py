@@ -1,4 +1,5 @@
 import json
+import re
 import asyncio
 import subprocess
 from datetime import datetime, timezone
@@ -21,6 +22,36 @@ celery_app.conf.update(
 
 def get_engine():
     return create_async_engine(settings.database_url)
+
+
+def score_post(boost_topics, suppress_topics, caption):
+    hashtags = re.findall(r'#\w+', caption)
+    caption_body = re.sub(r'#\w+', '', caption).strip()
+
+    prompt = f"""Score this Instagram post for relevance to a user's interests.
+
+User wants MORE of: {boost_topics}
+User wants LESS of: {suppress_topics}
+
+Caption text (no hashtags): {caption_body[:300] or "(no text)"}
+Hashtags present: {' '.join(hashtags[:20]) or "(none)"}
+
+IMPORTANT: Hashtags are often spam-added for reach and do NOT reflect actual post content.
+Score based on:
+1. The caption text body (what the post actually says)
+2. Ignore hashtags unless the caption body confirms the topic
+
+Score 0-100. Reply exactly:
+SCORE: <number>
+REASON: <one sentence>"""
+
+    result = subprocess.run(
+        ["claude", "-p", prompt, "--model", "haiku"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    return result.stdout
 
 
 async def run_automation_for_user(user_id: int):
@@ -67,32 +98,14 @@ async def run_automation_for_user(user_id: int):
                 return {"skipped": "no posts found for topics"}
         except Exception as e:
             return {"error": str(e)}
+
         actions = []
 
         for post in posts[:5]:
             try:
                 caption = post.caption_text or ""
-                image_url = str(post.thumbnail_url or post.resources[0].thumbnail_url if post.resources else "")
 
-                prompt = f"""You are scoring an Instagram post for relevance to a user's interests.
-
-User wants MORE of: {boost_topics}
-User wants LESS of: {suppress_topics}
-
-Post caption: {caption[:300]}
-
-Score this post 0-100 for relevance to the boost topics (0 = completely irrelevant or matches suppress topics, 100 = perfectly matches boost topics).
-Reply in this exact format:
-SCORE: <number>
-REASON: <one sentence>"""
-
-                result = subprocess.run(
-                    ["claude", "-p", prompt, "--model", "haiku"],
-                    capture_output=True,
-                    text=True,
-                    timeout=120,
-                )
-                response_text = result.stdout
+                response_text = score_post(boost_topics, suppress_topics, caption)
                 lines = response_text.strip().split("\n")
                 score = int(lines[0].replace("SCORE:", "").strip())
                 reason = lines[1].replace("REASON:", "").strip() if len(lines) > 1 else ""
@@ -115,7 +128,12 @@ REASON: <one sentence>"""
                     action=action,
                 )
                 db.add(log)
-                actions.append({"post": post.user.username, "score": score, "action": action, "reason": reason})
+                actions.append({
+                    "post": post.user.username,
+                    "score": score,
+                    "action": action,
+                    "reason": reason,
+                })
 
             except Exception as e:
                 print(f"[scoring] post {post.id} failed: {type(e).__name__}: {e}")
