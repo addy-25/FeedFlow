@@ -1,5 +1,4 @@
 import asyncio
-import subprocess
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,6 +7,7 @@ from pydantic import BaseModel
 from ..auth import get_current_user
 from ..database import get_db
 from ..models import User, Preference
+from ..ai import complete
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 
@@ -57,8 +57,8 @@ class SuggestResponse(BaseModel):
     suggestions: list[str]
 
 
-def _ask_claude_for_topics(topics: list[str]) -> list[str]:
-    """Ask the Claude CLI for related topics. Returns [] on any failure."""
+def _ask_ai_for_topics(topics: list[str]) -> list[str]:
+    """Ask the AI provider for related topics. Returns [] on any failure."""
     joined = ", ".join(topics)
     prompt = (
         f"A user wants to see MORE social-media content about these topics: {joined}.\n"
@@ -66,17 +66,7 @@ def _ask_claude_for_topics(topics: list[str]) -> list[str]:
         "in their list. Reply with ONLY a comma-separated list of short topic names "
         "(1-3 words each). No numbering, no explanation."
     )
-    try:
-        result = subprocess.run(
-            ["claude", "-p", prompt, "--model", "haiku"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-    except Exception:
-        return []
-
-    raw = result.stdout.strip()
+    raw = complete(prompt, max_tokens=150).strip()
     existing = {t.strip().lower() for t in topics}
     out: list[str] = []
     for part in raw.replace("\n", ",").split(","):
@@ -93,6 +83,6 @@ async def suggest(
 ):
     if not body.topics:
         return SuggestResponse(suggestions=[])
-    # Run the blocking CLI call off the event loop.
-    suggestions = await asyncio.to_thread(_ask_claude_for_topics, body.topics)
+    # Run the blocking SDK call off the event loop.
+    suggestions = await asyncio.to_thread(_ask_ai_for_topics, body.topics)
     return SuggestResponse(suggestions=suggestions)

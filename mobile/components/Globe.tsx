@@ -1,8 +1,4 @@
-/**
- * Interest "globe": a glowing core wrapped in tilted orbital rings that spin
- * continuously, with luminous nodes riding each ring. Pure SVG + Reanimated —
- * the visual centrepiece of the Preferences screen, with zero WebGL fragility.
- */
+
 import { useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, LinearGradient, RadialGradient, Stop } from 'react-native-svg';

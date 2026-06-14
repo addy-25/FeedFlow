@@ -10,6 +10,7 @@ import { GlassCard } from '../../components/GlassCard';
 import { Reveal } from '../../components/Reveal';
 import { api } from '../../lib/api';
 import { isNotificationsEnabled, setNotificationsEnabled } from '../../lib/notifications';
+import { getStoredInterval, setStoredInterval } from '../../lib/localSettings';
 import { useAuth } from '../../lib/auth';
 import { colors, font, radii, spacing } from '../../theme';
 
@@ -35,16 +36,23 @@ export default function Profile() {
   const [savingInterval, setSavingInterval] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, me, settings, notifOn] = await Promise.all([
+    // Locally-stored interval is the sticky source of truth for the UI (survives
+    // restarts even when the backend is unreachable).
+    const stored = await getStoredInterval();
+    setIntervalMin(stored);
+
+    const [s, me, notifOn] = await Promise.all([
       api.getInstagramStatus(),
       api.getMe(),
-      api.getSettings(),
       isNotificationsEnabled(),
     ]);
     setHandle(s.username);
     setEmail(me.email);
-    setIntervalMin(settings.automation_interval_minutes);
     setNotifications(notifOn);
+
+    // Best-effort: make sure the backend (and thus Celery) matches the stored
+    // choice, in case an earlier save happened while offline.
+    api.updateSettings(stored).catch(() => {});
   }, []);
 
   useFocusEffect(
@@ -62,14 +70,11 @@ export default function Profile() {
   const chooseInterval = async (minutes: number) => {
     if (minutes === intervalMin) return;
     Haptics.selectionAsync();
-    const prev = intervalMin;
-    setIntervalMin(minutes);
+    setIntervalMin(minutes);            // optimistic UI
+    await setStoredInterval(minutes);   // persist locally — survives restarts
     setSavingInterval(true);
     try {
-      const res = await api.updateSettings(minutes);
-      setIntervalMin(res.automation_interval_minutes);
-    } catch {
-      setIntervalMin(prev); // revert on failure
+      await api.updateSettings(minutes); // sync to backend so Celery respects it
     } finally {
       setSavingInterval(false);
     }

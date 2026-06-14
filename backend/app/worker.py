@@ -1,13 +1,13 @@
 import json
 import re
 import asyncio
-import subprocess
 from datetime import datetime, timezone
 from celery import Celery
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from instagrapi import Client
 from .config import settings
+from .ai import complete
 
 celery_app = Celery("feedflow", broker=settings.redis_url, backend=settings.redis_url)
 
@@ -52,13 +52,7 @@ Score 0-100. Reply exactly:
 SCORE: <number>
 REASON: <one sentence>"""
 
-    result = subprocess.run(
-        ["claude", "-p", prompt, "--model", "haiku"],
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    return result.stdout
+    return complete(prompt, max_tokens=100)
 
 
 async def run_automation_for_user(user_id: int):

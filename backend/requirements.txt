@@ -10,4 +10,4 @@ bcrypt
 redis
 instagrapi
 celery
-anthropic
+openai
