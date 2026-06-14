@@ -95,8 +95,26 @@ async function request<T>(
   return (await res.json()) as T;
 }
 
-/** Wraps a network call so a connection failure transparently serves demo data. */
+/**
+ * Background reads & silent writes: serve demo data on ANY failure — including a
+ * stale/unreachable backend returning 404/500 — so a screen never breaks or logs
+ * an unhandled error just from loading.
+ */
 async function withFallback<T>(fn: () => Promise<T>, fallback: () => T): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (DEMO_FALLBACK) return fallback();
+    throw err;
+  }
+}
+
+/**
+ * User-facing writes (auth, Instagram connect): a real API error must reach the
+ * UI (wrong password, email already in use, …), so only a *connection* failure
+ * falls back to demo.
+ */
+async function withStrictFallback<T>(fn: () => Promise<T>, fallback: () => T): Promise<T> {
   try {
     return await fn();
   } catch (err) {
@@ -142,7 +160,7 @@ export const api = {
   },
 
   changeEmail(email: string): Promise<Me> {
-    return withFallback(
+    return withStrictFallback(
       () => request<Me>('/auth/email', { method: 'PATCH', body: { email } }),
       () => {
         demo.me = { ...demo.me, email };
@@ -152,7 +170,7 @@ export const api = {
   },
 
   changePassword(current_password: string, new_password: string): Promise<void> {
-    return withFallback(
+    return withStrictFallback(
       async () => {
         await request('/auth/password', {
           method: 'POST',
@@ -164,7 +182,7 @@ export const api = {
   },
 
   resetPassword(email: string, new_password: string): Promise<void> {
-    return withFallback(
+    return withStrictFallback(
       async () => {
         await request('/auth/reset-password', {
           method: 'POST',
@@ -205,7 +223,7 @@ export const api = {
   },
 
   connectInstagram(username: string, password: string): Promise<{ status: string }> {
-    return withFallback(
+    return withStrictFallback(
       () =>
         request('/instagram/connect', {
           method: 'POST',
