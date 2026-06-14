@@ -16,23 +16,45 @@ import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Reveal } from '../components/Reveal';
 import { api } from '../lib/api';
+import { isValidEmail } from '../lib/validation';
 import { colors, font, radii, spacing } from '../theme';
 
 export default function ForgotPassword() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const [stage, setStage] = useState<'email' | 'reset'>('email');
   const [email, setEmail] = useState('');
+  const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
 
-  const submit = async () => {
+  // Step 1 — verify the email shape, then ask the backend to send a code.
+  const sendCode = async () => {
     setError(null);
-    if (!email.trim() || !password) {
-      setError('Enter your email and a new password.');
+    if (!isValidEmail(email)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.forgotPassword(email.trim());
+      setStage('reset');
+    } catch (e: any) {
+      setError(e?.message ?? 'Could not send the code.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Step 2 — submit the emailed code along with the new password.
+  const resetWithCode = async () => {
+    setError(null);
+    if (!code.trim()) {
+      setError('Enter the code from your email.');
       return;
     }
     if (password.length < 6) {
@@ -45,7 +67,7 @@ export default function ForgotPassword() {
     }
     setBusy(true);
     try {
-      await api.resetPassword(email.trim(), password);
+      await api.resetPassword(email.trim(), code.trim(), password);
       setDone(true);
     } catch (e: any) {
       setError(e?.message ?? 'Could not reset password.');
@@ -80,12 +102,12 @@ export default function ForgotPassword() {
                 style={{ marginTop: spacing.xxl, width: '100%' }}
               />
             </Reveal>
-          ) : (
+          ) : stage === 'email' ? (
             <View style={styles.body}>
               <Reveal>
                 <Text style={styles.title}>Reset password</Text>
                 <Text style={styles.sub}>
-                  Enter the email for your account and choose a new password.
+                  Enter your account email and we'll send you a verification code.
                 </Text>
               </Reveal>
 
@@ -101,6 +123,43 @@ export default function ForgotPassword() {
                     autoCapitalize="none"
                     autoCorrect={false}
                     style={styles.input}
+                  />
+
+                  {error && <Text style={styles.error}>{error}</Text>}
+
+                  <PrimaryButton
+                    label="Send code"
+                    onPress={sendCode}
+                    loading={busy}
+                    style={{ marginTop: spacing.xl }}
+                  />
+                </GlassCard>
+              </Reveal>
+            </View>
+          ) : (
+            <View style={styles.body}>
+              <Reveal>
+                <Text style={styles.title}>Enter code</Text>
+                <Text style={styles.sub}>
+                  We sent a verification code to{' '}
+                  <Text style={{ color: colors.text }}>{email.trim()}</Text>. Enter it below with
+                  your new password.
+                </Text>
+              </Reveal>
+
+              <Reveal delay={120} style={{ marginTop: spacing.xl }}>
+                <GlassCard>
+                  <Text style={styles.label}>Verification code</Text>
+                  <TextInput
+                    value={code}
+                    onChangeText={setCode}
+                    placeholder="123456"
+                    placeholderTextColor={colors.textMuted}
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={6}
+                    style={[styles.input, styles.codeInput]}
                   />
                   <Text style={[styles.label, { marginTop: spacing.lg }]}>New password</Text>
                   <TextInput
@@ -125,10 +184,22 @@ export default function ForgotPassword() {
 
                   <PrimaryButton
                     label="Reset password"
-                    onPress={submit}
+                    onPress={resetWithCode}
                     loading={busy}
                     style={{ marginTop: spacing.xl }}
                   />
+
+                  <Pressable
+                    onPress={() => {
+                      setError(null);
+                      setCode('');
+                      setStage('email');
+                    }}
+                    style={styles.resendRow}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.resendText}>Use a different email or resend code</Text>
+                  </Pressable>
                 </GlassCard>
               </Reveal>
             </View>
@@ -166,5 +237,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
   },
+  codeInput: { letterSpacing: 8, fontSize: 20, textAlign: 'center' },
   error: { color: colors.reduce, ...font.caption, marginTop: spacing.md },
+  resendRow: { alignSelf: 'center', marginTop: spacing.lg },
+  resendText: { ...font.label, color: colors.cyan },
 });

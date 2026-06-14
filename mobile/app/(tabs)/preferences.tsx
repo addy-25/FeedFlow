@@ -25,6 +25,7 @@ import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { Globe } from '../../components/Globe';
 import { Reveal } from '../../components/Reveal';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { api, type PrefMode } from '../../lib/api';
 import { colors, font, radii, spacing, TOPIC_CATALOG } from '../../theme';
 
@@ -160,13 +161,15 @@ export default function Preferences() {
         showsVerticalScrollIndicator={false}
       >
         <Reveal>
-          <View style={styles.headerRow}>
-            <Text style={styles.h1}>Interests</Text>
-            <Pressable onPress={reset} hitSlop={10} style={styles.resetBtn}>
-              <Ionicons name="refresh" size={15} color={colors.violetSoft} />
-              <Text style={styles.resetText}>Reset</Text>
-            </Pressable>
-          </View>
+          <ScreenHeader
+            title="Interests"
+            right={
+              <Pressable onPress={reset} hitSlop={10} style={styles.resetBtn}>
+                <Ionicons name="refresh" size={15} color={colors.violetSoft} />
+                <Text style={styles.resetText}>Reset</Text>
+              </Pressable>
+            }
+          />
           <Text style={styles.sub}>Drag a topic across — or tap its arrow — to reshape your feed.</Text>
         </Reveal>
 

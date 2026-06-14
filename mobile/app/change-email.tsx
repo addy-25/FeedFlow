@@ -17,6 +17,7 @@ import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Reveal } from '../components/Reveal';
 import { api } from '../lib/api';
+import { isValidEmail } from '../lib/validation';
 import { colors, font, radii, spacing } from '../theme';
 
 export default function ChangeEmail() {
@@ -37,6 +38,10 @@ export default function ChangeEmail() {
     const next = email.trim();
     if (!next) {
       setError('Enter a new email address.');
+      return;
+    }
+    if (!isValidEmail(next)) {
+      setError('Enter a valid email address.');
       return;
     }
     if (next === current) {

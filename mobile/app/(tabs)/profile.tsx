@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { Reveal } from '../../components/Reveal';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { api } from '../../lib/api';
 import { isNotificationsEnabled, setNotificationsEnabled } from '../../lib/notifications';
 import { getStoredInterval, setStoredInterval } from '../../lib/localSettings';
@@ -95,7 +96,7 @@ export default function Profile() {
         showsVerticalScrollIndicator={false}
       >
         <Reveal>
-          <Text style={styles.h1}>Profile</Text>
+          <ScreenHeader title="Profile" />
         </Reveal>
 
         <Reveal delay={80}>

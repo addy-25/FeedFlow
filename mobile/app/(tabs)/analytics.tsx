@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { Reveal } from '../../components/Reveal';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { CountUp } from '../../components/CountUp';
 import { api, type LogItem } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
@@ -56,7 +57,7 @@ export default function Analytics() {
         }
       >
         <Reveal>
-          <Text style={styles.h1}>Activity</Text>
+          <ScreenHeader title="Activity" />
           <Text style={styles.sub}>Every decision FeedFlow made on your behalf.</Text>
         </Reveal>
 

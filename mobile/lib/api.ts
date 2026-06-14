@@ -181,12 +181,25 @@ export const api = {
     );
   },
 
-  resetPassword(email: string, new_password: string): Promise<void> {
+  forgotPassword(email: string): Promise<void> {
+    return withStrictFallback(
+      async () => {
+        await request('/auth/forgot-password', {
+          method: 'POST',
+          body: { email },
+          auth: false,
+        });
+      },
+      () => undefined
+    );
+  },
+
+  resetPassword(email: string, code: string, new_password: string): Promise<void> {
     return withStrictFallback(
       async () => {
         await request('/auth/reset-password', {
           method: 'POST',
-          body: { email, new_password },
+          body: { email, code, new_password },
           auth: false,
         });
       },

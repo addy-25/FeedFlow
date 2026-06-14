@@ -4,10 +4,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import create_token, get_current_user, hash_password, verify_password
 from ..database import get_db
+from ..email_service import create_reset_code, send_reset_code, verify_reset_code
 from ..models import User
 from ..schemas import (
     ChangeEmailRequest,
     ChangePasswordRequest,
+    ForgotPasswordRequest,
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
@@ -70,10 +72,25 @@ async def change_password(
     return {"status": "updated"}
 
 
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)):
+    """Email a single-use verification code if the address has an account.
+
+    Always responds 200 regardless of whether the email is registered, so the
+    endpoint can't be used to discover which emails have accounts.
+    """
+    user = await db.scalar(select(User).where(User.email == body.email))
+    if user:
+        code = await create_reset_code(body.email)
+        await send_reset_code(body.email, code)
+    return {"status": "sent"}
+
+
 @router.post("/reset-password")
 async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
-    # NOTE: hackathon-grade reset — anyone who knows the email can reset it.
-    # Production should email a short-lived, single-use reset token instead.
+    # Ownership is proven by the emailed code; reject if it's wrong or expired.
+    if not await verify_reset_code(body.email, body.code):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired code")
     user = await db.scalar(select(User).where(User.email == body.email))
     if not user:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No account with that email")

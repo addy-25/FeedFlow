@@ -15,6 +15,7 @@ import { GlassCard } from '../components/GlassCard';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { Reveal } from '../components/Reveal';
 import { useAuth } from '../lib/auth';
+import { isValidEmail } from '../lib/validation';
 import { colors, font, radii, spacing } from '../theme';
 
 export default function Login() {
@@ -32,6 +33,10 @@ export default function Login() {
     setError(null);
     if (!email.trim() || !password) {
       setError('Enter your email and password.');
+      return;
+    }
+    if (!isValidEmail(email)) {
+      setError('Enter a valid email address.');
       return;
     }
     setBusy(true);

@@ -28,5 +28,14 @@ class Settings(BaseSettings):
     ai_base_url: str = "https://api.openai.com/v1"
     ai_model: str = "gpt-4o-mini"
 
+    # SMTP for password-reset verification emails. Defaults target Gmail.
+    # Leave smtp_user / smtp_password empty to run in dev mode (the code is
+    # printed to the backend console instead of emailed).
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+
 
 settings = Settings() # type: ignore

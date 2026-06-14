@@ -18,6 +18,7 @@ import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
 import { Reveal } from '../../components/Reveal';
+import { ScreenHeader } from '../../components/ScreenHeader';
 import { api, type IgStatus } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
 import { colors, font, radii, spacing } from '../../theme';
@@ -117,7 +118,7 @@ export default function Connect() {
           keyboardShouldPersistTaps="handled"
         >
           <Reveal>
-            <Text style={styles.h1}>Connect</Text>
+            <ScreenHeader title="Connect" />
             <Text style={styles.sub}>Link the Instagram account FeedFlow will personalize.</Text>
           </Reveal>
 
