@@ -13,7 +13,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { demo } from './demo';
 
-export const BASE_URL = 'http://192.168.1.9:8000';
+export const BASE_URL = 'https://feedflow-production-bc44.up.railway.app';
 const DEMO_FALLBACK = true;
 const TOKEN_KEY = 'feedflow_token';
 

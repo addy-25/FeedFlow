@@ -12,6 +12,7 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.adityasingh.feedflow",
       "adaptiveIcon": {
         "backgroundColor": "#0A0A14",
         "foregroundImage": "./assets/android-icon-foreground.png",
