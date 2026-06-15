@@ -1,7 +1,6 @@
 /** Frosted glass surface used for every card in the app. */
 import type { ReactNode } from 'react';
-import { StyleSheet, View, type ViewStyle } from 'react-native';
-import { BlurView } from 'expo-blur';
+import { View, type ViewStyle } from 'react-native';
 import { colors, radii, spacing } from '../theme';
 
 export function GlassCard({
@@ -15,7 +14,6 @@ export function GlassCard({
 }) {
   return (
     <View style={[styles.wrap, style]}>
-      <BlurView intensity={24} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={[styles.fill, padded && styles.padded]}>{children}</View>
     </View>
   );

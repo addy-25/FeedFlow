@@ -1,6 +1,5 @@
 /** Custom bottom tab bar for the swipeable Material Top Tabs navigator. */
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
@@ -19,7 +18,6 @@ export function GlassTabBar({ state, descriptors, navigation }: MaterialTopTabBa
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.bar, { paddingBottom: insets.bottom, height: 64 + insets.bottom }]}>
-      <BlurView intensity={40} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={styles.row}>
         {state.routes.map((route, i) => {
           const focused = state.index === i;
