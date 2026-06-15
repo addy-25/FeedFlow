@@ -42,5 +42,13 @@
     "web": "expo start --web",
     "postinstall": "patch-package"
   },
+  "expo": {
+    "doctor": {
+      "reactNativeDirectoryCheck": {
+        "exclude": ["@react-native-cookies/cookies"],
+        "listUnknownPackages": false
+      }
+    }
+  },
   "private": true
 }
