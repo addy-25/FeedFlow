@@ -13,6 +13,7 @@
     },
     "android": {
       "package": "com.adityasingh.feedflow",
+      "newArchEnabled": false,
       "adaptiveIcon": {
         "backgroundColor": "#0A0A14",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -26,7 +27,8 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true
