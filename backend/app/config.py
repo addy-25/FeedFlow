@@ -10,9 +10,7 @@ class Settings(BaseSettings):
     @field_validator("database_url")
     @classmethod
     def _use_asyncpg_driver(cls, v: str) -> str:
-        # Managed Postgres (Railway/Render/Heroku) hands out a postgres:// or
-        # postgresql:// URL, but the async app needs the asyncpg driver. Rewrite
-        # it so the cloud-provided URL can be pasted in as-is.
+        
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql://", 1)
         if v.startswith("postgresql://"):

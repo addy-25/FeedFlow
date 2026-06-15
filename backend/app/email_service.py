@@ -1,9 +1,3 @@
-"""Password-reset verification codes.
-
-Generates a 6-digit code, stashes it in Redis with a short TTL, and emails it
-via SMTP (Gmail by default). When SMTP credentials aren't configured the flow
-still works for development — the code is printed to the backend console.
-"""
 import asyncio
 import secrets
 import smtplib
