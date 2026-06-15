@@ -6,13 +6,21 @@
  * banner when not muted. Every notify call is wrapped so it can never crash the
  * app if the runtime doesn't support notifications.
  */
-import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// expo-notifications dropped push support in Expo Go (SDK 53+) and logs a hard
+// error just on import there. Load it lazily only outside Expo Go — the in-app
+// notification center always works, and system banners work in the built app.
+const isExpoGo = Constants.appOwnership === 'expo';
+const Notifications: typeof import('expo-notifications') | null = isExpoGo
+  ? null
+  : require('expo-notifications');
 
 const MUTE_KEY = 'ff_notifications_enabled';
 const HIST_KEY = 'ff_notification_history';
 
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -35,7 +43,7 @@ export async function isNotificationsEnabled(): Promise<boolean> {
 
 export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
   await AsyncStorage.setItem(MUTE_KEY, enabled ? 'true' : 'false');
-  if (enabled) {
+  if (enabled && Notifications) {
     try {
       await Notifications.requestPermissionsAsync();
     } catch {}
@@ -77,6 +85,7 @@ export async function notifyRun(summary: {
   await pushHistory(item); // always record for the in-app center
 
   if (!(await isNotificationsEnabled())) return;
+  if (!Notifications) return;
   try {
     const perm = await Notifications.getPermissionsAsync();
     if (!perm.granted) {

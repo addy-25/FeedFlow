@@ -1,6 +1,6 @@
 /** Frosted glass surface used for every card in the app. */
 import type { ReactNode } from 'react';
-import { View, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type ViewStyle } from 'react-native';
 import { colors, radii, spacing } from '../theme';
 
 export function GlassCard({

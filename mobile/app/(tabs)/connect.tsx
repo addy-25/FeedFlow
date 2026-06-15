@@ -13,8 +13,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import WebView from 'react-native-webview';
-import CookieManager from '@react-native-cookies/cookies';
+import Constants from 'expo-constants';
 import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -23,6 +22,15 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { api, type IgStatus } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
 import { colors, font, radii, spacing } from '../../theme';
+
+// react-native-webview and @react-native-cookies/cookies are native modules that
+// are NOT bundled into Expo Go — importing them there throws on load and crashes
+// the whole app. Load them lazily only outside Expo Go so the app still runs in
+// Expo Go for UI testing. The real Instagram login works in the built APK.
+const isExpoGo = Constants.appOwnership === 'expo';
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const WebView: any = isExpoGo ? null : require('react-native-webview').default;
+const CookieManager: any = isExpoGo ? null : require('@react-native-cookies/cookies').default;
 
 const IG_LOGIN_URL = 'https://www.instagram.com/accounts/login/';
 const IG_USER_AGENT =
@@ -62,6 +70,13 @@ export default function Connect() {
   );
 
   const openWebView = async () => {
+    if (isExpoGo || !CookieManager) {
+      Alert.alert(
+        'Use the installed app',
+        'Instagram login uses a secure in-app browser that only works in the built app, not Expo Go. Install the APK to connect your account.'
+      );
+      return;
+    }
     setError(null);
     extracting.current = false;
     await CookieManager.clearAll();
@@ -223,16 +238,18 @@ export default function Connect() {
             </View>
           )}
 
-          <WebView
-            source={{ uri: IG_LOGIN_URL }}
-            userAgent={IG_USER_AGENT}
-            onNavigationStateChange={handleNavigationChange}
-            onLoadStart={() => setWebViewLoading(true)}
-            onLoadEnd={() => setWebViewLoading(false)}
-            sharedCookiesEnabled
-            thirdPartyCookiesEnabled
-            style={{ flex: 1 }}
-          />
+          {WebView && (
+            <WebView
+              source={{ uri: IG_LOGIN_URL }}
+              userAgent={IG_USER_AGENT}
+              onNavigationStateChange={handleNavigationChange}
+              onLoadStart={() => setWebViewLoading(true)}
+              onLoadEnd={() => setWebViewLoading(false)}
+              sharedCookiesEnabled
+              thirdPartyCookiesEnabled
+              style={{ flex: 1 }}
+            />
+          )}
         </View>
       </Modal>
     </GradientBackground>
