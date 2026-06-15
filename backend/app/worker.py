@@ -85,6 +85,10 @@ async def run_automation_for_user(user_id: int):
 
         cl = Client()
         cl.delay_range = [2, 5]
+        # Must reuse the SAME proxy the session was created with, or Instagram
+        # sees the session jump to a datacenter IP and forces re-login.
+        if settings.ig_proxy:
+            cl.set_proxy(settings.ig_proxy)
         cl.set_settings(json.loads(account.session_data))
 
         try:

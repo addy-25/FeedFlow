@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from pydantic import BaseModel
 from ..auth import get_current_user
+from ..config import settings
 from ..database import get_db
 from ..models import User, InstagramAccount
 from instagrapi import Client
@@ -36,6 +37,10 @@ async def connect(
 
     cl = Client()
     cl.delay_range = [1, 3]
+    # Route through a residential/mobile proxy when configured so Instagram
+    # doesn't reject the login as datacenter traffic (see config.ig_proxy).
+    if settings.ig_proxy:
+        cl.set_proxy(settings.ig_proxy)
 
     try:
         cl.login(body.username, body.password)

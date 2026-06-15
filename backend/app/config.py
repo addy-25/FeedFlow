@@ -37,5 +37,11 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
 
+    # Instagram logs in fine from a residential IP (your laptop) but rejects
+    # datacenter IPs (Railway, AWS, ...) outright. Routing instagrapi through a
+    # residential/mobile proxy makes the cloud login look like a real phone.
+    # Format: "http://user:pass@host:port" (or socks5://...). Empty = no proxy.
+    ig_proxy: str = ""
+
 
 settings = Settings() # type: ignore
