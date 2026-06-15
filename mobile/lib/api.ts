@@ -253,6 +253,24 @@ export const api = {
     );
   },
 
+  connectInstagramWebView(session_id: string, ds_user_id: string): Promise<{ status: string; username: string }> {
+    return withStrictFallback(
+      () =>
+        request('/instagram/connect-webview', {
+          method: 'POST',
+          body: { session_id, ds_user_id },
+        }),
+      () => {
+        demo.igStatus = {
+          status: 'connected',
+          username: 'demo_user',
+          last_sync: new Date().toISOString(),
+        };
+        return { status: 'connected', username: 'demo_user' };
+      }
+    );
+  },
+
   disconnectInstagram(): Promise<{ status: string }> {
     return withFallback(
       () => request('/instagram/disconnect', { method: 'POST' }),

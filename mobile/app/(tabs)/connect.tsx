@@ -1,19 +1,20 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import WebView from 'react-native-webview';
+import CookieManager from '@react-native-cookies/cookies';
 import { GradientBackground } from '../../components/GradientBackground';
 import { GlassCard } from '../../components/GlassCard';
 import { PrimaryButton } from '../../components/PrimaryButton';
@@ -22,6 +23,10 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { api, type IgStatus } from '../../lib/api';
 import { timeAgo } from '../../lib/format';
 import { colors, font, radii, spacing } from '../../theme';
+
+const IG_LOGIN_URL = 'https://www.instagram.com/accounts/login/';
+const IG_USER_AGENT =
+  'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36';
 
 type UiStatus = IgStatus['status'];
 
@@ -38,16 +43,16 @@ export default function Connect() {
     username: null,
     last_sync: null,
   });
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [showWebView, setShowWebView] = useState(false);
+  const [webViewLoading, setWebViewLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const extracting = useRef(false);
 
   const load = useCallback(async () => {
     const s = await api.getInstagramStatus();
     setStatus(s);
-    if (s.username) setUsername(s.username);
   }, []);
 
   useFocusEffect(
@@ -56,23 +61,49 @@ export default function Connect() {
     }, [load])
   );
 
-  const connect = async () => {
+  const openWebView = async () => {
     setError(null);
-    if (!username.trim() || !password) {
-      setError('Enter your Instagram username and password.');
-      return;
-    }
-    setBusy(true);
-    setStatus((s) => ({ ...s, status: 'connecting' }));
+    extracting.current = false;
+    await CookieManager.clearAll();
+    setShowWebView(true);
+    setWebViewLoading(true);
+  };
+
+  const handleNavigationChange = async (navState: { url?: string }) => {
+    const url = navState.url ?? '';
+    const loggedIn =
+      url.startsWith('https://www.instagram.com/') &&
+      !url.includes('/accounts/login') &&
+      !url.includes('/accounts/onetap') &&
+      !url.includes('/accounts/emailsignup') &&
+      !url.includes('/challenge/') &&
+      !url.includes('/accounts/suspended');
+
+    if (!loggedIn || extracting.current) return;
+    extracting.current = true;
+
     try {
-      await api.connectInstagram(username.trim(), password);
-      setPassword('');
+      const cookies = await CookieManager.get('https://www.instagram.com');
+      const sessionId = cookies['sessionid']?.value;
+      const dsUserId = cookies['ds_user_id']?.value;
+
+      if (!sessionId || !dsUserId) {
+        // Not fully logged in yet — keep waiting
+        extracting.current = false;
+        return;
+      }
+
+      setShowWebView(false);
+      setBusy(true);
+      setStatus((s) => ({ ...s, status: 'connecting' }));
+      await api.connectInstagramWebView(sessionId, dsUserId);
       await load();
     } catch (e: any) {
       setError(e?.message ?? 'Connection failed.');
       setStatus((s) => ({ ...s, status: 'disconnected' }));
     } finally {
       setBusy(false);
+      extracting.current = false;
     }
   };
 
@@ -89,7 +120,6 @@ export default function Connect() {
             setDisconnecting(true);
             try {
               await api.disconnectInstagram();
-              setPassword('');
               await load();
             } finally {
               setDisconnecting(false);
@@ -105,110 +135,112 @@ export default function Connect() {
 
   return (
     <GradientBackground>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+      <ScrollView
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 110 },
+        ]}
+        showsVerticalScrollIndicator={false}
       >
-        <ScrollView
-          contentContainerStyle={[
-            styles.scroll,
-            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + 110 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <Reveal>
-            <ScreenHeader title="Connect" />
-            <Text style={styles.sub}>Link the Instagram account FeedFlow will personalize.</Text>
-          </Reveal>
+        <Reveal>
+          <ScreenHeader title="Connect" />
+          <Text style={styles.sub}>Link the Instagram account FeedFlow will personalize.</Text>
+        </Reveal>
 
-          <Reveal delay={100}>
-            <GlassCard style={{ marginTop: spacing.lg, alignItems: 'center' }}>
-              <LinearGradient
-                colors={['#F58529', '#DD2A7B', '#8134AF'] as const}
-                style={styles.igBadge}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
+        <Reveal delay={100}>
+          <GlassCard style={{ marginTop: spacing.lg, alignItems: 'center' }}>
+            <LinearGradient
+              colors={['#F58529', '#DD2A7B', '#8134AF'] as const}
+              style={styles.igBadge}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Ionicons name="logo-instagram" size={34} color="#fff" />
+            </LinearGradient>
+
+            <View style={[styles.statusPill, { borderColor: meta.color }]}>
+              <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
+              <Text style={[styles.statusLabel, { color: meta.color }]}>{meta.label}</Text>
+            </View>
+
+            {connected && (
+              <>
+                <Text style={styles.username}>@{status.username}</Text>
+                <Text style={styles.lastSync}>Last sync: {timeAgo(status.last_sync)}</Text>
+              </>
+            )}
+          </GlassCard>
+        </Reveal>
+
+        <Reveal delay={180}>
+          <GlassCard style={{ marginTop: spacing.lg }}>
+            {error && <Text style={styles.error}>{error}</Text>}
+
+            <PrimaryButton
+              label={connected ? 'Reconnect Instagram' : 'Connect with Instagram'}
+              onPress={openWebView}
+              loading={busy}
+              style={{ marginTop: error ? spacing.md : 0 }}
+            />
+
+            {connected && (
+              <Pressable
+                onPress={doDisconnect}
+                disabled={disconnecting}
+                style={styles.disconnectBtn}
+                hitSlop={8}
               >
-                <Ionicons name="logo-instagram" size={34} color="#fff" />
-              </LinearGradient>
-
-              <View style={[styles.statusPill, { borderColor: meta.color }]}>
-                <View style={[styles.statusDot, { backgroundColor: meta.color }]} />
-                <Text style={[styles.statusLabel, { color: meta.color }]}>{meta.label}</Text>
-              </View>
-
-              {connected && (
-                <>
-                  <Text style={styles.username}>@{status.username}</Text>
-                  <Text style={styles.lastSync}>Last sync: {timeAgo(status.last_sync)}</Text>
-                </>
-              )}
-            </GlassCard>
-          </Reveal>
-
-          <Reveal delay={180}>
-            <GlassCard style={{ marginTop: spacing.lg }}>
-              <Text style={styles.label}>Username</Text>
-              <TextInput
-                value={username}
-                onChangeText={setUsername}
-                placeholder="your.handle"
-                placeholderTextColor={colors.textMuted}
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.input}
-              />
-              <Text style={[styles.label, { marginTop: spacing.lg }]}>Password</Text>
-              <TextInput
-                value={password}
-                onChangeText={setPassword}
-                placeholder="••••••••••"
-                placeholderTextColor={colors.textMuted}
-                secureTextEntry
-                style={styles.input}
-              />
-
-              {error && <Text style={styles.error}>{error}</Text>}
-
-              <PrimaryButton
-                label={connected ? 'Update Connection' : 'Connect Instagram'}
-                onPress={connect}
-                loading={busy}
-                style={{ marginTop: spacing.xl }}
-              />
-
-              {connected && (
-                <Pressable
-                  onPress={doDisconnect}
-                  disabled={disconnecting}
-                  style={styles.disconnectBtn}
-                  hitSlop={8}
-                >
-                  <Ionicons name="unlink-outline" size={16} color={colors.reduce} />
-                  <Text style={styles.disconnectText}>
-                    {disconnecting ? 'Disconnecting…' : 'Disconnect account'}
-                  </Text>
-                </Pressable>
-              )}
-
-              <View style={styles.privacyRow}>
-                <Ionicons name="lock-closed" size={12} color={colors.textMuted} />
-                <Text style={styles.privacy}>
-                  Credentials are used only to establish a session and are never shared.
+                <Ionicons name="unlink-outline" size={16} color={colors.reduce} />
+                <Text style={styles.disconnectText}>
+                  {disconnecting ? 'Disconnecting…' : 'Disconnect account'}
                 </Text>
-              </View>
-            </GlassCard>
-          </Reveal>
-        </ScrollView>
-      </KeyboardAvoidingView>
+              </Pressable>
+            )}
+
+            <View style={styles.privacyRow}>
+              <Ionicons name="lock-closed" size={12} color={colors.textMuted} />
+              <Text style={styles.privacy}>
+                You log in directly on Instagram's page — your password is never seen by FeedFlow.
+              </Text>
+            </View>
+          </GlassCard>
+        </Reveal>
+      </ScrollView>
+
+      {/* Instagram WebView login modal */}
+      <Modal visible={showWebView} animationType="slide" onRequestClose={() => setShowWebView(false)}>
+        <View style={[styles.modalRoot, { paddingTop: insets.top }]}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Sign in to Instagram</Text>
+            <Pressable onPress={() => setShowWebView(false)} hitSlop={12}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </Pressable>
+          </View>
+
+          {webViewLoading && (
+            <View style={styles.loader}>
+              <ActivityIndicator color={colors.cyan} size="large" />
+            </View>
+          )}
+
+          <WebView
+            source={{ uri: IG_LOGIN_URL }}
+            userAgent={IG_USER_AGENT}
+            onNavigationStateChange={handleNavigationChange}
+            onLoadStart={() => setWebViewLoading(true)}
+            onLoadEnd={() => setWebViewLoading(false)}
+            sharedCookiesEnabled
+            thirdPartyCookiesEnabled
+            style={{ flex: 1 }}
+          />
+        </View>
+      </Modal>
     </GradientBackground>
   );
 }
 
 const styles = StyleSheet.create({
   scroll: { paddingHorizontal: spacing.lg },
-  h1: { ...font.hero, color: colors.text },
   sub: { ...font.body, color: colors.textDim, marginTop: spacing.sm },
   igBadge: {
     width: 76,
@@ -231,18 +263,7 @@ const styles = StyleSheet.create({
   statusLabel: { ...font.label },
   username: { ...font.h2, color: colors.text, marginTop: spacing.lg },
   lastSync: { ...font.caption, color: colors.textDim, marginTop: 4 },
-  label: { ...font.label, color: colors.textDim, marginBottom: spacing.sm },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.lg,
-    height: 52,
-    color: colors.text,
-    fontSize: 15,
-  },
-  error: { color: colors.reduce, ...font.caption, marginTop: spacing.md },
+  error: { color: colors.reduce, ...font.caption, marginBottom: spacing.md },
   disconnectBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -254,4 +275,27 @@ const styles = StyleSheet.create({
   disconnectText: { ...font.label, color: colors.reduce },
   privacyRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: spacing.lg },
   privacy: { ...font.caption, color: colors.textMuted, flex: 1 },
+  modalRoot: { flex: 1, backgroundColor: '#fff' },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#fff',
+  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: '#000' },
+  loader: {
+    position: 'absolute',
+    top: 80,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    backgroundColor: '#fff',
+  },
 });

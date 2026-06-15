@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, LayoutChangeEvent, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
@@ -28,7 +28,7 @@ const SLIDES = [
   {
     key: 'score',
     title: 'AI scores\nevery post',
-    body: 'Claude reads each candidate post and rates how relevant it is to your interests — from 0 to 100 — before any action is taken.',
+    body: 'FeedFlow’s AI reads each candidate post and rates how relevant it is to your interests — from 0 to 100 — before any action is taken.',
   },
   {
     key: 'grow',
@@ -38,7 +38,6 @@ const SLIDES = [
 ];
 
 function SlideVisual({ index }: { index: number }) {
-  if (index === 0) return <Globe size={230} />;
   if (index === 1)
     return (
       <ProgressRing progress={0.92} size={190} stroke={14}>
@@ -46,7 +45,7 @@ function SlideVisual({ index }: { index: number }) {
         <Text style={styles.scoreLabel}>Relevant</Text>
       </ProgressRing>
     );
-  return <Globe size={210} />;
+  return <Globe size={220} />;
 }
 
 export default function Onboarding() {
@@ -54,6 +53,9 @@ export default function Onboarding() {
   const insets = useSafeAreaInsets();
   const x = useSharedValue(0);
   const [page, setPage] = useState(0);
+  // Measure the pager region so every slide gets the SAME fixed height —
+  // otherwise slides size to their text and vertical centering jumps per page.
+  const [pagerHeight, setPagerHeight] = useState(0);
 
   const onScroll = useAnimatedScrollHandler({
     onScroll: (e) => {
@@ -61,30 +63,38 @@ export default function Onboarding() {
     },
   });
 
+  const onPagerLayout = (e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0 && h !== pagerHeight) setPagerHeight(h);
+  };
+
   return (
     <GradientBackground>
-      <View style={[styles.root, { paddingTop: insets.top }]}>
+      <View style={[styles.root, { paddingTop: insets.top + spacing.sm }]}>
         <Text style={styles.brand}>
           Feed<Text style={{ color: colors.cyan }}>Flow</Text>
         </Text>
 
-        <Animated.ScrollView
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          onMomentumScrollEnd={(e) =>
-            setPage(Math.round(e.nativeEvent.contentOffset.x / width))
-          }
-          style={{ flexGrow: 0 }}
-        >
-          {SLIDES.map((slide, i) => (
-            <Slide key={slide.key} slide={slide} index={i} x={x} />
-          ))}
-        </Animated.ScrollView>
+        <View style={styles.pager} onLayout={onPagerLayout}>
+          {pagerHeight > 0 && (
+            <Animated.ScrollView
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onScroll={onScroll}
+              scrollEventThrottle={16}
+              onMomentumScrollEnd={(e) =>
+                setPage(Math.round(e.nativeEvent.contentOffset.x / width))
+              }
+            >
+              {SLIDES.map((slide, i) => (
+                <Slide key={slide.key} slide={slide} index={i} x={x} height={pagerHeight} />
+              ))}
+            </Animated.ScrollView>
+          )}
+        </View>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={styles.dots}>
             {SLIDES.map((_, i) => (
               <Dot key={i} index={i} x={x} />
@@ -108,10 +118,12 @@ function Slide({
   slide,
   index,
   x,
+  height,
 }: {
   slide: (typeof SLIDES)[number];
   index: number;
   x: SharedValue<number>;
+  height: number;
 }) {
   // parallax: visual and text drift/scale as the slide enters and leaves
   const visualStyle = useAnimatedStyle(() => {
@@ -135,7 +147,7 @@ function Slide({
   });
 
   return (
-    <View style={[styles.slide, { width }]}>
+    <View style={[styles.slide, { width, height }]}>
       <Animated.View style={[styles.visual, visualStyle]}>
         <SlideVisual index={index} />
       </Animated.View>
@@ -161,8 +173,9 @@ function Dot({ index, x }: { index: number; x: SharedValue<number> }) {
 const styles = StyleSheet.create({
   root: { flex: 1, paddingHorizontal: spacing.xl },
   brand: { ...font.h2, color: colors.text, textAlign: 'center', marginTop: spacing.md },
-  slide: { alignItems: 'center', justifyContent: 'center', paddingTop: spacing.xxl },
-  visual: { height: 260, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xxl },
+  pager: { flex: 1 },
+  slide: { alignItems: 'center', justifyContent: 'center' },
+  visual: { height: 240, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xl },
   title: { ...font.hero, color: colors.text, textAlign: 'center', lineHeight: 38 },
   body: {
     ...font.body,
@@ -172,7 +185,7 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     paddingHorizontal: spacing.sm,
   },
-  footer: { paddingBottom: spacing.xl, marginTop: 'auto' },
+  footer: { marginTop: 'auto' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, height: 8 },
   dot: { height: 8, borderRadius: 4, backgroundColor: colors.cyan },
   skip: { ...font.label, color: colors.textMuted, textAlign: 'center', marginTop: spacing.lg },

@@ -18,6 +18,10 @@ class ConnectRequest(BaseModel):
     username: str
     password: str
 
+class ConnectWebViewRequest(BaseModel):
+    session_id: str
+    ds_user_id: str
+
 
 class StatusResponse(BaseModel):
     status: str
@@ -72,6 +76,47 @@ async def connect(
 
     await db.commit()
     return {"status": "connected", "username": body.username}
+
+
+@router.post("/connect-webview")
+async def connect_webview(
+    body: ConnectWebViewRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    cl = Client()
+    cl.delay_range = [1, 3]
+    if settings.ig_proxy:
+        cl.set_proxy(settings.ig_proxy)
+
+    try:
+        cl.login_by_sessionid(body.session_id)
+    except Exception as e:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Session login failed: {str(e)}")
+
+    ig_username = cl.username or f"user_{body.ds_user_id}"
+    session_json = json.dumps(cl.get_settings())
+
+    account = await db.scalar(
+        select(InstagramAccount).where(InstagramAccount.user_id == user.id)
+    )
+    if account:
+        account.username = ig_username
+        account.session_data = session_json
+        account.status = "connected"
+        account.last_sync = datetime.now(timezone.utc)
+    else:
+        account = InstagramAccount(
+            user_id=user.id,
+            username=ig_username,
+            session_data=session_json,
+            status="connected",
+            last_sync=datetime.now(timezone.utc),
+        )
+        db.add(account)
+
+    await db.commit()
+    return {"status": "connected", "username": ig_username}
 
 
 @router.post("/disconnect")
