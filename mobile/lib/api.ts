@@ -125,16 +125,51 @@ async function withStrictFallback<T>(fn: () => Promise<T>, fallback: () => T): P
 }
 
 export const api = {
-  async register(email: string, password: string) {
-    const r = await request<{ access_token: string }>('/auth/register', {
+  // Registration no longer hands back a token — the account is created
+  // unverified and a code is emailed. Returns whether the caller must verify.
+  async register(email: string, password: string): Promise<{ verificationRequired: boolean }> {
+    try {
+      await request<{ status: string; email: string }>('/auth/register', {
+        method: 'POST',
+        body: { email, password },
+        auth: false,
+      });
+      return { verificationRequired: true };
+    } catch (err) {
+      if (err instanceof ApiError) throw err; // 409 email taken, etc. bubble up
+      if (DEMO_FALLBACK) {
+        // Backend unreachable — keep the demo alive by signing in directly.
+        await setToken('demo-token');
+        return { verificationRequired: false };
+      }
+      throw err;
+    }
+  },
+
+  // Submit the emailed code; on success the account is verified and signed in.
+  async verifyEmail(email: string, code: string): Promise<void> {
+    const r = await request<{ access_token: string }>('/auth/verify-email', {
       method: 'POST',
-      body: { email, password },
+      body: { email, code },
       auth: false,
     });
     await setToken(r.access_token);
   },
 
-  async login(email: string, password: string) {
+  resendVerification(email: string): Promise<void> {
+    return withStrictFallback(
+      async () => {
+        await request('/auth/resend-verification', {
+          method: 'POST',
+          body: { email },
+          auth: false,
+        });
+      },
+      () => undefined
+    );
+  },
+
+  async login(email: string, password: string): Promise<{ verificationRequired: boolean }> {
     try {
       const r = await request<{ access_token: string }>('/auth/login', {
         method: 'POST',
@@ -142,11 +177,17 @@ export const api = {
         auth: false,
       });
       await setToken(r.access_token);
+      return { verificationRequired: false };
     } catch (err) {
-      if (err instanceof ApiError) throw err;
+      // 403 = account exists but email isn't verified; backend already re-sent a
+      // code, so route the user to the verify screen instead of erroring out.
+      if (err instanceof ApiError) {
+        if (err.status === 403) return { verificationRequired: true };
+        throw err;
+      }
       if (DEMO_FALLBACK) {
         await setToken('demo-token');
-        return;
+        return { verificationRequired: false };
       }
       throw err;
     }

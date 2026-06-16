@@ -8,8 +8,10 @@ import { api, clearToken, getToken } from './api';
 interface AuthState {
   ready: boolean;
   signedIn: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ verificationRequired: boolean }>;
+  register: (email: string, password: string) => Promise<{ verificationRequired: boolean }>;
+  verifyEmail: (email: string, code: string) => Promise<void>;
+  resendVerification: (email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -27,12 +29,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    await api.login(email, password);
-    setSignedIn(true);
+    const r = await api.login(email, password);
+    if (!r.verificationRequired) setSignedIn(true);
+    return r;
   };
   const register = async (email: string, password: string) => {
-    await api.register(email, password);
+    const r = await api.register(email, password);
+    // Only the demo-fallback path signs in immediately; real signups verify first.
+    if (!r.verificationRequired) setSignedIn(true);
+    return r;
+  };
+  const verifyEmail = async (email: string, code: string) => {
+    await api.verifyEmail(email, code);
     setSignedIn(true);
+  };
+  const resendVerification = async (email: string) => {
+    await api.resendVerification(email);
   };
   const logout = async () => {
     await clearToken();
@@ -40,7 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ ready, signedIn, login, register, logout }}>
+    <AuthContext.Provider
+      value={{ ready, signedIn, login, register, verifyEmail, resendVerification, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );

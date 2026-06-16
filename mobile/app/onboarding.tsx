@@ -317,12 +317,17 @@ function Dot({ index, x }: { index: number; x: SharedValue<number> }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, paddingHorizontal: spacing.xl },
-  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  root: { flex: 1 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl,
+  },
   brand: { ...font.h2, color: colors.text },
   skip: { ...font.label, color: colors.textDim },
   pager: { flex: 1 },
-  slide: { alignItems: 'center', justifyContent: 'center' },
+  slide: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: spacing.xl },
   visual: { alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xxl },
   title: { ...font.hero, color: colors.text, textAlign: 'center', lineHeight: 38 },
   body: {
@@ -333,7 +338,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     paddingHorizontal: spacing.sm,
   },
-  footer: { marginTop: 'auto' },
+  footer: { marginTop: 'auto', paddingHorizontal: spacing.xl },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: 8, height: 8 },
   dot: { height: 8, borderRadius: 4, backgroundColor: colors.cyan },
 });

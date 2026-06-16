@@ -4,31 +4,75 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import create_token, get_current_user, hash_password, verify_password
 from ..database import get_db
-from ..email_service import create_reset_code, send_reset_code, verify_reset_code
+from ..email_service import create_code, send_code, verify_code
 from ..models import User
 from ..schemas import (
     ChangeEmailRequest,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     RegisterRequest,
+    RegisterResponse,
+    ResendVerificationRequest,
     ResetPasswordRequest,
     TokenResponse,
     UserOut,
+    VerifyEmailRequest,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse, status_code=201)
+@router.post("/register", response_model=RegisterResponse, status_code=201)
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.scalar(select(User).where(User.email == body.email))
     if existing:
+        # Let an unverified account re-trigger its verification instead of being
+        # permanently stuck (e.g. they never received the first code, or mistyped
+        # the password). The latest attempt's password wins.
+        if not existing.email_verified:
+            existing.hashed_password = hash_password(body.password)
+            await db.commit()
+            code = await create_code(body.email, "verify")
+            await send_code(body.email, code, "verify")
+            return RegisterResponse(status="verification_required", email=existing.email)
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
     user = User(email=body.email, hashed_password=hash_password(body.password))
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    # Account exists but is unverified — email a code and make the client confirm
+    # it before we hand out a token.
+    code = await create_code(user.email, "verify")
+    await send_code(user.email, code, "verify")
+    return RegisterResponse(status="verification_required", email=user.email)
+
+
+@router.post("/verify-email", response_model=TokenResponse)
+async def verify_email(body: VerifyEmailRequest, db: AsyncSession = Depends(get_db)):
+    if not await verify_code(body.email, body.code, "verify"):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired code")
+    user = await db.scalar(select(User).where(User.email == body.email))
+    if not user:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No account with that email")
+    user.email_verified = True
+    await db.commit()
+    # Verifying doubles as signing in, so return a token.
     return TokenResponse(access_token=create_token(user.id))
+
+
+@router.post("/resend-verification")
+async def resend_verification(
+    body: ResendVerificationRequest, db: AsyncSession = Depends(get_db)
+):
+    """Email a fresh verification code if the account exists and is unverified.
+
+    Always responds 200 so it can't be used to probe which emails are registered.
+    """
+    user = await db.scalar(select(User).where(User.email == body.email))
+    if user and not user.email_verified:
+        code = await create_code(body.email, "verify")
+        await send_code(body.email, code, "verify")
+    return {"status": "sent"}
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -36,6 +80,11 @@ async def login(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     user = await db.scalar(select(User).where(User.email == body.email))
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+    if not user.email_verified:
+        # Bounce them to verification with a fresh code rather than logging in.
+        code = await create_code(user.email, "verify")
+        await send_code(user.email, code, "verify")
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Email not verified")
     return TokenResponse(access_token=create_token(user.id))
 
 
@@ -81,15 +130,15 @@ async def forgot_password(body: ForgotPasswordRequest, db: AsyncSession = Depend
     """
     user = await db.scalar(select(User).where(User.email == body.email))
     if user:
-        code = await create_reset_code(body.email)
-        await send_reset_code(body.email, code)
+        code = await create_code(body.email, "pwreset")
+        await send_code(body.email, code, "pwreset")
     return {"status": "sent"}
 
 
 @router.post("/reset-password")
 async def reset_password(body: ResetPasswordRequest, db: AsyncSession = Depends(get_db)):
     # Ownership is proven by the emailed code; reject if it's wrong or expired.
-    if not await verify_reset_code(body.email, body.code):
+    if not await verify_code(body.email, body.code, "pwreset"):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid or expired code")
     user = await db.scalar(select(User).where(User.email == body.email))
     if not user:

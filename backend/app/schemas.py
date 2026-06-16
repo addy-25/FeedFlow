@@ -25,6 +25,20 @@ class ResetPasswordRequest(BaseModel):
     new_password: str = Field(min_length=6)
 
 
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=4, max_length=8)
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class RegisterResponse(BaseModel):
+    status: str
+    email: EmailStr
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -33,5 +47,6 @@ class TokenResponse(BaseModel):
 class UserOut(BaseModel):
     id: int
     email: EmailStr
+    email_verified: bool = True
 
     model_config = {"from_attributes": True}

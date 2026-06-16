@@ -41,8 +41,15 @@ export default function Login() {
     }
     setBusy(true);
     try {
-      if (mode === 'login') await login(email.trim(), password);
-      else await register(email.trim(), password);
+      const r =
+        mode === 'login'
+          ? await login(email.trim(), password)
+          : await register(email.trim(), password);
+      if (r.verificationRequired) {
+        // Account isn't verified yet — a code was emailed; collect it next.
+        router.push({ pathname: '/verify-email', params: { email: email.trim() } });
+        return;
+      }
       router.replace('/(tabs)');
     } catch (e: any) {
       setError(e?.message ?? 'Something went wrong.');
