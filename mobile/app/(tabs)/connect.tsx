@@ -23,12 +23,23 @@ import { timeAgo } from '../../lib/format';
 import { colors, font, radii, spacing } from '../../theme';
 
 // react-native-webview and @react-native-cookies/cookies are native modules not
-// bundled in Expo Go. Try to load them — if they throw, fall back to null so
-// the app doesn't crash. In the built APK they load fine.
+// bundled in Expo Go. Try to load them — if they throw (Expo Go), fall back to
+// null so the app doesn't crash. In the built APK they load fine.
+//
+// NOTE: @react-native-cookies/cookies uses `module.exports = {...}` (CommonJS,
+// no `.default`), so `require(...).default` is undefined even when the native
+// module IS present — which would wrongly trip the "needs APK" guard. Fall back
+// to the module object itself when there's no `.default`.
 let WebView: any = null;
 let CookieManager: any = null;
-try { WebView = require('react-native-webview').default; } catch {}
-try { CookieManager = require('@react-native-cookies/cookies').default; } catch {}
+try {
+  const m = require('react-native-webview');
+  WebView = m.default ?? m.WebView ?? m;
+} catch {}
+try {
+  const m = require('@react-native-cookies/cookies');
+  CookieManager = m.default ?? m;
+} catch {}
 
 const IG_LOGIN_URL = 'https://www.instagram.com/accounts/login/';
 const IG_USER_AGENT =
