@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,13 +28,14 @@ const INTERVAL_OPTIONS: { minutes: number; label: string }[] = [
 export default function Profile() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, deleteAccount } = useAuth();
   const [handle, setHandle] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [automation, setAutomation] = useState(true);
   const [notifications, setNotifications] = useState(true);
   const [intervalMin, setIntervalMin] = useState(60);
   const [savingInterval, setSavingInterval] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     // Locally-stored interval is the sticky source of truth for the UI (survives
@@ -84,6 +85,32 @@ export default function Profile() {
   const doLogout = async () => {
     await logout();
     router.replace('/login');
+  };
+
+  const confirmDelete = () => {
+    Alert.alert(
+      'Delete account?',
+      'This permanently erases your account, preferences, and Instagram connection. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              router.replace('/login');
+            } catch (e: any) {
+              Alert.alert('Could not delete account', e?.message ?? 'Please try again.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -217,6 +244,15 @@ export default function Profile() {
                 <Ionicons name="log-out-outline" size={18} color={colors.reduce} />
               </View>
               <Text style={[styles.rowLabel, { color: colors.reduce }]}>Log out</Text>
+            </Pressable>
+            <Divider />
+            <Pressable style={styles.row} onPress={confirmDelete} disabled={deleting}>
+              <View style={[styles.rowIcon, { backgroundColor: colors.reduce + '22' }]}>
+                <Ionicons name="trash-outline" size={18} color={colors.reduce} />
+              </View>
+              <Text style={[styles.rowLabel, { color: colors.reduce }]}>
+                {deleting ? 'Deleting…' : 'Delete account'}
+              </Text>
             </Pressable>
           </GlassCard>
         </Reveal>

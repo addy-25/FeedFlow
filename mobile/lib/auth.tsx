@@ -12,6 +12,7 @@ interface AuthState {
   register: (email: string, password: string) => Promise<{ verificationRequired: boolean }>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -46,6 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const resendVerification = async (email: string) => {
     await api.resendVerification(email);
   };
+  const deleteAccount = async () => {
+    await api.deleteAccount();
+    setSignedIn(false);
+  };
   const logout = async () => {
     await clearToken();
     setSignedIn(false);
@@ -53,7 +58,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ ready, signedIn, login, register, verifyEmail, resendVerification, logout }}
+      value={{
+        ready,
+        signedIn,
+        login,
+        register,
+        verifyEmail,
+        resendVerification,
+        deleteAccount,
+        logout,
+      }}
     >
       {children}
     </AuthContext.Provider>

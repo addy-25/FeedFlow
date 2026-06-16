@@ -1,11 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import create_token, get_current_user, hash_password, verify_password
 from ..database import get_db
 from ..email_service import create_code, send_code, verify_code
-from ..models import User
+from ..models import (
+    AutomationLog,
+    InstagramAccount,
+    Preference,
+    User,
+    UserSettings,
+)
 from ..schemas import (
     ChangeEmailRequest,
     ChangePasswordRequest,
@@ -91,6 +97,25 @@ async def login(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 async def me(user: User = Depends(get_current_user)):
     return user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_account(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Permanently delete the signed-in user and everything tied to them.
+
+    The foreign keys don't declare ON DELETE CASCADE, so child rows must be
+    removed first or Postgres rejects the user delete with a constraint error.
+    """
+    uid = user.id
+    await db.execute(delete(AutomationLog).where(AutomationLog.user_id == uid))
+    await db.execute(delete(Preference).where(Preference.user_id == uid))
+    await db.execute(delete(UserSettings).where(UserSettings.user_id == uid))
+    await db.execute(delete(InstagramAccount).where(InstagramAccount.user_id == uid))
+    await db.delete(user)
+    await db.commit()
 
 
 @router.patch("/email", response_model=UserOut)

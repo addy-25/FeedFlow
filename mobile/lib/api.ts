@@ -200,6 +200,19 @@ export const api = {
     );
   },
 
+  // Permanently deletes the account on the backend, then drops the local token.
+  // A real API error (e.g. expired session) bubbles up; a pure connection
+  // failure in demo mode still signs the user out locally.
+  async deleteAccount(): Promise<void> {
+    try {
+      await request('/auth/me', { method: 'DELETE' });
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      if (!DEMO_FALLBACK) throw err;
+    }
+    await clearToken();
+  },
+
   changeEmail(email: string): Promise<Me> {
     return withStrictFallback(
       () => request<Me>('/auth/email', { method: 'PATCH', body: { email } }),
