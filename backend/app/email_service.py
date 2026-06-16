@@ -90,6 +90,33 @@ def _send_sync(to_email: str, code: str, purpose: str) -> None:
         smtp.send_message(msg)
 
 
+def _send_via_gas(to_email: str, code: str, purpose: str) -> None:
+    """Send through a Google Apps Script web app that relays via the user's Gmail.
+
+    Goes over HTTPS so it's not affected by Railway's SMTP block, and originates
+    from Google so it lands in the inbox for any recipient.
+    """
+    _, subject, body = _meta(purpose)
+    payload = {
+        "secret": settings.gas_email_secret,
+        "to": to_email,
+        "subject": subject,
+        "body": body.format(code=code),
+    }
+    req = urllib.request.Request(
+        settings.gas_email_url,
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    # Apps Script answers with a 302 to googleusercontent.com; urllib follows it
+    # automatically and returns the script's JSON output.
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        text = resp.read().decode(errors="replace")
+    if "sent" not in text:
+        raise RuntimeError(f"unexpected Apps Script response: {text[:200]}")
+
+
 def _send_via_brevo(to_email: str, code: str, purpose: str) -> None:
     """Send through Brevo's HTTPS transactional API (works where SMTP is blocked)."""
     _, subject, body = _meta(purpose)
@@ -119,6 +146,15 @@ async def send_code(to_email: str, code: str, purpose: str) -> None:
     Never 500s the request on a mail failure — the error and the code are logged
     so the flow can still be completed from the server console.
     """
+    if settings.gas_email_url:
+        try:
+            await asyncio.to_thread(_send_via_gas, to_email, code, purpose)
+            return
+        except Exception as e:
+            print(f"[email] gas send failed for {to_email}: {type(e).__name__}: {e}")
+            print(f"[email:fallback] {purpose} code for {to_email}: {code}")
+            return
+
     if settings.brevo_api_key:
         try:
             await asyncio.to_thread(_send_via_brevo, to_email, code, purpose)
