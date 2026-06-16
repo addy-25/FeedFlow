@@ -14,10 +14,7 @@ from .routers import auth, instagram, preferences, automation, settings
 async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # create_all only creates missing *tables*, not new columns on existing
-        # ones. Add email_verified to a pre-existing users table. DEFAULT true
-        # grandfathers accounts created before verification existed so they keep
-        # working; new sign-ups are inserted with False by the ORM regardless.
+        
         await conn.execute(
             text(
                 "ALTER TABLE users ADD COLUMN IF NOT EXISTS "
