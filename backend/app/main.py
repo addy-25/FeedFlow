@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware # type: ignore
 from sqlalchemy import text
 
 from .database import Base, engine
-from . import models  # noqa: F401  registers tables on Base
+from . import models  
 from .routers import auth, instagram, preferences, automation, settings
 
 
