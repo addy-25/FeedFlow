@@ -1,6 +1,7 @@
 import asyncio
 import secrets
 import smtplib
+import socket
 from email.message import EmailMessage
 
 import redis.asyncio as aioredis
@@ -72,7 +73,15 @@ def _send_sync(to_email: str, code: str, purpose: str) -> None:
     msg["From"] = settings.smtp_from or settings.smtp_user
     msg["To"] = to_email
     msg.set_content(body.format(code=code))
-    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=20) as smtp:
+    # Railway containers have no IPv6 egress, but getaddrinfo may return the
+    # smtp.gmail.com AAAA (IPv6) record first -> "Network is unreachable". Pin to
+    # an IPv4 address, while keeping the real hostname (_host) so STARTTLS still
+    # validates the certificate against smtp.gmail.com.
+    ipv4 = socket.getaddrinfo(
+        settings.smtp_host, settings.smtp_port, socket.AF_INET, socket.SOCK_STREAM
+    )[0][4][0]
+    with smtplib.SMTP(ipv4, settings.smtp_port, timeout=20) as smtp:
+        smtp._host = settings.smtp_host  # cert is checked against this, not the IP
         smtp.starttls()
         smtp.login(settings.smtp_user, settings.smtp_password)
         smtp.send_message(msg)
