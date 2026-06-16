@@ -1,7 +1,10 @@
 import asyncio
+import json
 import secrets
 import smtplib
 import socket
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 
 import redis.asyncio as aioredis
@@ -87,15 +90,56 @@ def _send_sync(to_email: str, code: str, purpose: str) -> None:
         smtp.send_message(msg)
 
 
+def _send_via_brevo(to_email: str, code: str, purpose: str) -> None:
+    """Send through Brevo's HTTPS transactional API (works where SMTP is blocked)."""
+    _, subject, body = _meta(purpose)
+    payload = {
+        "sender": {"name": "FeedFlow", "email": settings.smtp_from or settings.smtp_user},
+        "to": [{"email": to_email}],
+        "subject": subject,
+        "textContent": body.format(code=code),
+    }
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode(),
+        headers={
+            "api-key": settings.brevo_api_key,
+            "Content-Type": "application/json",
+            "accept": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=20) as resp:
+        resp.read()
+
+
 async def send_code(to_email: str, code: str, purpose: str) -> None:
-    """Email the code, or log it (dev mode) when SMTP isn't configured."""
+    """Email the code via Brevo (preferred) or SMTP; log it when neither is set.
+
+    Never 500s the request on a mail failure — the error and the code are logged
+    so the flow can still be completed from the server console.
+    """
+    if settings.brevo_api_key:
+        try:
+            await asyncio.to_thread(_send_via_brevo, to_email, code, purpose)
+            return
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try:
+                detail = e.read().decode(errors="replace")[:300]
+            except Exception:
+                pass
+            print(f"[email] brevo HTTP {e.code} for {to_email}: {detail}")
+        except Exception as e:
+            print(f"[email] brevo send failed for {to_email}: {type(e).__name__}: {e}")
+        print(f"[email:fallback] {purpose} code for {to_email}: {code}")
+        return
+
     if not settings.smtp_user or not settings.smtp_password:
         print(f"[email:dev] {purpose} code for {to_email}: {code}")
         return
     try:
         await asyncio.to_thread(_send_sync, to_email, code, purpose)
     except Exception as e:
-        # Never 500 the request on a mail failure — log it (and the code, so a
-        # dev can still complete the flow) and move on.
         print(f"[email] send failed for {to_email}: {type(e).__name__}: {e}")
         print(f"[email:fallback] {purpose} code for {to_email}: {code}")

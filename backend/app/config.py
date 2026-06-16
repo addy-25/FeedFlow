@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = ""
 
+    # Brevo (HTTP transactional email API). Preferred over raw SMTP because
+    # Railway blocks outbound SMTP ports — Brevo sends over HTTPS (443) instead.
+    # When brevo_api_key is set it takes priority; smtp_from is the (Brevo-
+    # verified) sender address. Leave empty to fall back to SMTP / dev logging.
+    brevo_api_key: str = ""
+
     # Instagram logs in fine from a residential IP (your laptop) but rejects
     # datacenter IPs (Railway, AWS, ...) outright. Routing instagrapi through a
     # residential/mobile proxy makes the cloud login look like a real phone.
