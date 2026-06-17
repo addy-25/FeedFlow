@@ -32,9 +32,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.scalar(select(User).where(User.email == body.email))
     if existing:
-        # Let an unverified account re-trigger its verification instead of being
-        # permanently stuck (e.g. they never received the first code, or mistyped
-        # the password). The latest attempt's password wins.
+        
         if not existing.email_verified:
             existing.hashed_password = hash_password(body.password)
             await db.commit()
