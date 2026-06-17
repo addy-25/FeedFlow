@@ -2,7 +2,7 @@
 
 > AI-powered Instagram feed personalization. Tell it what you care about — it handles the rest.
 
-FeedFlow connects to your Instagram account, fetches your feed, and uses Claude AI to re-rank every post based on your content preferences. High-relevance posts get boosted, low-relevance posts get pushed down. Set a schedule and it runs automatically in the background.
+FeedFlow connects to your Instagram account, fetches your feed, and uses ChatGPT AI to re-rank every post based on your content preferences. High-relevance posts get boosted, low-relevance posts get pushed down. Set a schedule and it runs automatically in the background.
 
 ---
 
@@ -16,7 +16,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses Claude 
 
 - **Email-verified sign up** — 6-digit OTP sent to your inbox, codes expire in 10 minutes
 - **Secure Instagram connection** — logs in via an in-app browser using Instagram's own login page; your password never touches FeedFlow's servers
-- **AI feed ranking** — Claude scores every post against your interests; boosts what you want, suppresses what you don't
+- **AI feed ranking** — ChatGPT scores every post against your interests; boosts what you want, suppresses what you don't
 - **Content preferences** — toggle topics on/off (tech, photography, fitness, etc.); saved to the backend and used as AI instructions
 - **Automated scheduling** — Celery Beat fires personalization on a per-user interval (15m → daily) with no user interaction needed
 - **Change email / password** — full account management with verification flows
@@ -51,7 +51,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses Claude 
                          │ 1. fetch feed    │
                          │    (instagrapi)  │
                          │ 2. score posts   │
-                         │    (Claude AI)   │
+                         │    (ChatGPT AI)  │
                          │ 3. write logs    │
                          └──────────────────┘
 ```
@@ -66,7 +66,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses Claude 
 | Cache / Queue | Redis | OTP TTL storage, Celery message broker |
 | Background jobs | Celery + Celery Beat | Async personalization, per-user scheduling |
 | Instagram | instagrapi | Feed fetching using stored session cookies |
-| AI | Claude (OpenAI-compatible API) | Post scoring against user preferences |
+| AI | ChatGPT (OpenAI-compatible API) | Post scoring against user preferences |
 | Email | Google Apps Script relay | OTP delivery over HTTPS — no SMTP needed |
 
 ---
@@ -81,7 +81,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses Claude 
    - Topics the user wants **more** of (boost list)
    - Topics the user wants **less** of (suppress list)
    - The post caption (hashtags stripped — they're noise)
-6. Claude returns a `SCORE: 0–100` and a one-sentence reason
+6. ChatGPT returns a `SCORE: 0–100` and a one-sentence reason
 7. Posts are ranked by score; results written to `automation_logs`
 8. The Instagram account `last_sync` timestamp is updated
 
@@ -97,7 +97,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses Claude 
 - Redis
 - Celery + Celery Beat
 - instagrapi
-- OpenAI-compatible SDK (pointed at Claude)
+- OpenAI-compatible SDK (pointed at ChatGPT)
 - Pydantic Settings
 - PyJWT, bcrypt
 
