@@ -38,7 +38,7 @@ FeedFlow connects to your Instagram account, fetches your feed, and uses ChatGPT
 └──────┬───────────────────────────┬───────────────────────┘
        │                           │
 ┌──────▼──────┐          ┌─────────▼────────┐
-│ PostgreSQL  │          │      Redis        │
+│ PostgreSQL  │          │      Redis       │
 │             │          │                  │
 │ users       │          │ • email OTP keys │
 │ instagram   │          │ • Celery broker  │
