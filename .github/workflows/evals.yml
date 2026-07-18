@@ -1,0 +1,41 @@
+name: Scoring Evals
+
+on:
+  pull_request:
+    paths:
+      - "backend/app/worker.py"
+      - "backend/app/ai.py"
+      - "backend/app/guardrails/**"
+      - "backend/evals/**"
+
+jobs:
+  evals:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt scipy
+
+      - name: Run guardrail unit tests
+        run: pytest tests/test_guardrails.py -v
+
+      - name: Run eval suite
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_BASE_URL: ${{ secrets.AI_BASE_URL }}
+          AI_MODEL: ${{ secrets.AI_MODEL }}
+          # Eval runner needs these but won't actually connect to DB/Redis
+          DATABASE_URL: "postgresql+asyncpg://localhost/feedflow"
+          REDIS_URL: "redis://localhost:6379/0"
+          JWT_SECRET: "ci-placeholder"
+        run: PYTHONPATH=. python evals/run_eval.py

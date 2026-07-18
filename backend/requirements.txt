@@ -11,3 +11,4 @@ redis
 instagrapi
 celery
 openai
+scipy

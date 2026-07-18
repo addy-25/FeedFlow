@@ -1,0 +1,8 @@
+{
+  "spearman": 0.9385,
+  "spearman_pvalue": 0.0,
+  "mae": 10.38,
+  "n_total": 50,
+  "n_valid": 50,
+  "parse_failures": 0
+}
