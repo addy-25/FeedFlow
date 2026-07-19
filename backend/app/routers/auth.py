@@ -44,8 +44,7 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    # Account exists but is unverified — email a code and make the client confirm
-    # it before we hand out a token.
+    
     code = await create_code(user.email, "verify")
     await send_code(user.email, code, "verify")
     return RegisterResponse(status="verification_required", email=user.email)
